@@ -41,9 +41,10 @@ namespace Sdx.UnSn
 		{
 			bool help = false;
 			IList<string> extra = null;
-
+			string unsnref = null;
 			var p = new OptionSet {
 				{ "h|?|help", "Print this help message", v => help = true },
+				{ "r=", "Remove the signed reference to the assembly", v => unsnref = v },
 			};
 
 			try {
@@ -68,8 +69,16 @@ namespace Sdx.UnSn
 			var name = assembly.Name;
 			name.HasPublicKey = false;
 			name.PublicKey = new byte[0];
-			foreach(var module in assembly.Modules)
+			foreach (var module in assembly.Modules) {
 				module.Attributes &= ~ModuleAttributes.StrongNameSigned;
+				if (unsnref == null)
+					continue;
+				if (!module.HasAssemblyReferences)
+					continue;
+				foreach (var asmref in module.AssemblyReferences)
+					if (asmref.Name == unsnref)
+						asmref.PublicKeyToken = new byte[0];
+			}
 			assembly.Write(assemblyPath);
 			
 		}
