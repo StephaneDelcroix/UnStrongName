@@ -40,11 +40,13 @@ namespace Sdx.UnSn
 		public static void Main(string[] args)
 		{
 			bool help = false;
+			bool unsnivt = false;
 			IList<string> extra = null;
 			string unsnref = null;
 			var p = new OptionSet {
 				{ "h|?|help", "Print this help message", v => help = true },
 				{ "r=", "Remove the signed reference to the assembly", v => unsnref = v },
+				{ "i", "Remove the strongNames in InternalsVisibleTo", v=> unsnivt = true },
 			};
 
 			try {
@@ -71,6 +73,7 @@ namespace Sdx.UnSn
 			name.PublicKey = new byte[0];
 			foreach (var module in assembly.Modules) {
 				module.Attributes &= ~ModuleAttributes.StrongNameSigned;
+
 				if (unsnref == null)
 					continue;
 				if (!module.HasAssemblyReferences)
@@ -78,6 +81,16 @@ namespace Sdx.UnSn
 				foreach (var asmref in module.AssemblyReferences)
 					if (asmref.Name == unsnref)
 						asmref.PublicKeyToken = new byte[0];
+			}
+			if (assembly.HasCustomAttributes && unsnivt) {
+				foreach (var cattr in assembly.CustomAttributes) {
+					if (cattr.AttributeType.Name != "InternalsVisibleToAttribute")
+						continue;
+					var commaIndex = (cattr.ConstructorArguments[0].Value as string).IndexOf(',');
+					if (commaIndex < 0)
+						continue;
+					cattr.ConstructorArguments[0] = new CustomAttributeArgument (cattr.AttributeType, (cattr.ConstructorArguments[0].Value as string).Substring(0, commaIndex).Trim());
+				}
 			}
 			assembly.Write(assemblyPath);
 			
